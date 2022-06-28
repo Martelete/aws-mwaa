@@ -1,0 +1,118 @@
+#
+# Variables
+#
+
+SOURCES            := $(shell find . -maxdepth 1 -type f -name \*.tf)
+MAKEFILE_PATH      := $(abspath $(firstword $(MAKEFILE_LIST)))
+MAKEFILE_DIR       := $(notdir $(patsubst %/,%,$(dir $(MAKEFILE_PATH))))
+AWS_DEFAULT_REGION ?= eu-central-1
+
+#
+# Before we start test that we have the mandatory executables available
+#
+# ###################################################################################
+#
+
+EXECUTABLES = terraform
+K := $(foreach exec,$(EXECUTABLES),\
+ $(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
+
+#####################################################################################
+###                                Build  targets                                 ###
+#####################################################################################
+
+all: | fmt validate
+
+#
+# Terraform targets
+#
+# ###################################################################################
+#
+
+.PHONY: init
+init:
+	@echo "-------------------------------------------------------------------------"
+	@echo "$(MAKEFILE_DIR): Perform terraform $@"
+	@echo "-------------------------------------------------------------------------"
+	@terraform $@ -upgrade=false -lock=true -lock-timeout=10s
+
+#
+# Pass arguments through to terraform which require remote state
+#
+
+.PHONY: plan
+plan: init
+	@echo "-------------------------------------------------------------------------"
+	@echo "$(MAKEFILE_DIR): Perform terraform $@"
+	@echo "-------------------------------------------------------------------------"
+	@terraform $@ -input=false -out=terraform.plan -lock=true -lock-timeout=10s
+
+.PHONY: apply console destroy graph output providers show
+apply console destroy graph output providers show: init
+	@echo "-------------------------------------------------------------------------"
+	@echo "$(MAKEFILE_DIR): Perform terraform $@"
+	@echo "-------------------------------------------------------------------------"
+	@terraform $@
+
+#
+# Pass arguments through to terraform which do not require remote state
+#
+
+.PHONY: validate
+validate: export AWS_REGION=$(AWS_DEFAULT_REGION)
+validate: init
+	@echo "-------------------------------------------------------------------------"
+	@echo "$(MAKEFILE_DIR): Perform terraform $@"
+	@echo "-------------------------------------------------------------------------"
+	@terraform $@
+
+.PHONY: get version
+get version:
+	@echo "-------------------------------------------------------------------------"
+	@echo "$(MAKEFILE_DIR): Perform terraform $@"
+	@echo "-------------------------------------------------------------------------"
+	@terraform $@
+
+.PHONY: fmt
+fmt:
+	@echo "-------------------------------------------------------------------------"
+	@echo "$(MAKEFILE_DIR): Perform terraform $@"
+	@echo "-------------------------------------------------------------------------"
+	@terraform $@ -recursive
+
+#####################################################################################
+###                                 Help  targets                                 ###
+#####################################################################################
+
+.PHONY: help
+help:
+	@echo "\nAvailable targets:"
+	@echo ""
+	@echo "  make                - perform code formatting, validation"
+	@echo "  make init           - initialize Terraform configuration"
+	@echo "  make plan           - generate plan"
+	@echo "  make apply          - apply plan"
+	@echo "  make destroy        - destroy infrastructure"
+	@echo ""
+	@echo "  make validate       - validate configuration"
+	@echo "  make get            - get modules"
+	@echo "  make output         - resources output"
+	@echo "  make show           - show resources"
+	@echo "  make fmt            - format code"
+	@echo "  make graph          - output visual graph of Terraform resources"
+	@echo "  make providers      - get providers used"
+	@echo ""
+	@echo "  make clean          - cleanup"
+	@echo ""
+	@echo "  make help           - show this"
+	@echo ""
+
+.PHONY: clean
+clean:
+	@echo "-------------------------------------------------------------------------"
+	@echo "$(MAKEFILE_DIR): Cleanup..."
+	@echo "-------------------------------------------------------------------------"
+	@-rm -rf ./.terraform
+	@-rm -f ./terraform.tfstate
+	@-rm -f ./terraform.*.backup
+	@-rm -f ./terraform.plan

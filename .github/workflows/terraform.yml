@@ -1,0 +1,28 @@
+name: Terraform
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+env:
+  AWS_REGION: eu-central-1
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - uses: hashicorp/setup-terraform@v1
+      - name: Validate versions.tf
+        run: |
+          for module in $(find . -type f -maxdepth 3 -mindepth 1 -iname "*.tf" -exec dirname "{}" \; | sort -u | uniq); do
+            pushd ${module}
+            if [[ ! -f ./versions.tf ]]; then
+              echo "Missing versions.tf file in ${module}"
+              exit 1
+            fi
+            popd
+          done
